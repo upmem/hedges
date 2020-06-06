@@ -15,7 +15,7 @@ The following instructions should work across platforms, except that installing 
 First, clone the repository to a local directory:
 
 ```
-git clone https://github.com/whpress/hedges.git
+git clone https://github.com/hawkjo/hedges.git
 ```
 
 Optionally, you can install into a virtual environment (recommended):
