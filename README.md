@@ -1,4 +1,32 @@
-# HEDGES
+#  [refactoring] HEDGES
+
+legacy HEDGE project faced many packaging/versioning issues that we solved here
+mainly bu using Docker image named bionic-edges (dhub/bionic/python2.7-numpy/) that provides a clean installation
+of the different dependencies.
+
+## clone
+```
+git clone -b master https://github.com/upmem/hedges/ && cd hedges/ && git submodule update --init --recursive
+```
+## build bionic-hedges image
+
+```
+make build_docker
+```
+
+## bionic-2.7-numpy
+
+test docker environnement, compilation and runtime with simple test
+```
+make test_docker_env
+```
+
+build and run test_programm
+```
+make build && make testprogramm
+```
+
+# [legacy] HEDGES
 
 A package for encoding and decoding arbitrary byte data to and from strands of DNA using a robust an error-correcting code (ECC).
 
