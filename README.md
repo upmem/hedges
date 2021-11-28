@@ -14,14 +14,12 @@ git clone -b master https://github.com/upmem/hedges/ && cd hedges/ && git submod
 make build_docker
 ```
 
-## bionic-2.7-numpy
-
-test docker environnement, compilation and runtime with simple test
+## test docker environnement, compilation and runtime with simple test
 ```
 make test_docker_env
 ```
 
-build and run test_programm
+## build and run test_programm
 ```
 make build && make testprogramm
 ```
