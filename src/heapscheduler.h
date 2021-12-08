@@ -23,7 +23,7 @@ struct HeapScheduler
 
 	HeapScheduler() : bigval(numeric_limits<T>::max()), ps(defaultps), ks(0), ar(ps, bigval), br(ps) {}
 	void push(T time, U cargo = U(NULL))
-	{	// lengthen list, add to end, sift up
+	{ // lengthen list, add to end, sift up
 		// pushes a time and cargo onto the heap
 		Int k, mo;
 		if (ks == ps)
@@ -40,7 +40,7 @@ struct HeapScheduler
 	}
 	T pop() { return pop(lastcargo); } // if no argument, return cargo in HeapScheduler::lastcargo
 	T pop(U &cargo)
-	{	// return top of heap, move last to top, shorten list, sift down
+	{ // return top of heap, move last to top, shorten list, sift down
 		// pops the next (in order) time and its cargo from the heap
 		// returns numeric_limits::max() time, and U() cargo, when heap is empty
 		Int k = 0, rdau, ldau, mindau;
@@ -71,7 +71,7 @@ struct HeapScheduler
 	}
 	void resizear(Int newps)
 	{							// only used internally
-		ar.resize(newps, true); //resize preserving contents
+		ar.resize(newps, true); // resize preserving contents
 		br.resize(newps, true);
 		for (int i = ks; i < newps; i++)
 			ar[i] = bigval;
@@ -82,10 +82,10 @@ struct HeapScheduler
 		ks = 0;
 		ar.assign(ps, bigval);
 		br.resize(ps);
-		//for (int i = 0; i < ps; i++) {
+		// for (int i = 0; i < ps; i++) {
 		//	ar[i] = bigval;
 		//	br[i] = U(NULL);
-		//}
+		// }
 	}
 	void reinit()
 	{ // zero out the heap and give back memory

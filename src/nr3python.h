@@ -41,169 +41,220 @@ using namespace std;
 
 static const double NaN = numeric_limits<double>::quiet_NaN();
 
-//Uint proto_nan[2]={0xffffffff, 0x7fffffff};
-//double NaN = *( double* )proto_nan;
+// Uint proto_nan[2]={0xffffffff, 0x7fffffff};
+// double NaN = *( double* )proto_nan;
 
-//Doub NaN = sqrt(-1.);
+// Doub NaN = sqrt(-1.);
 
 // Python glue Part I starts here (Part II at end of file)
 
-PyObject* NRpyException(const char *str, int die=1, int val=0) {
+PyObject *NRpyException(const char *str, int die = 1, int val = 0)
+{
 	PySys_WriteStderr("ERROR: ");
 	PySys_WriteStderr(str);
 	PySys_WriteStderr("\n");
-	//PyErr_BadArgument();
-	//PyErr_Format(PyExc_RuntimeError,str,val);
-	//PyErr_Print();
-	//PyErr_SetInterrupt();
+	// PyErr_BadArgument();
+	// PyErr_Format(PyExc_RuntimeError,str,val);
+	// PyErr_Print();
+	// PyErr_SetInterrupt();
 	PyErr_CheckSignals(); // causes a KeyboardInterrupt, only way I know to get back to the interpreter
-	//PyErr_SetInterrupt();
-	//PyErr_CheckSignals(); // maybe twice works better!
+	// PyErr_SetInterrupt();
+	// PyErr_CheckSignals(); // maybe twice works better!
 	return Py_None;
 }
 
 char NRpyMainName[] = "__main__";
-PyObject* NRpyGetByName(char *name, char *dict = NULL) {
-// get a PyObject from Python namespace (__main__ by default)
-	if (dict == NULL) dict = NRpyMainName;
-	PyObject* pymodule = PyImport_AddModule(dict);
-	PyObject* dictobj = PyModule_GetDict(pymodule);
-	PyObject* bb = PyDict_GetItemString(dictobj,name);
-	if (! bb) NRpyException("Failed to fetch a Python object by name.");
+PyObject *NRpyGetByName(char *name, char *dict = NULL)
+{
+	// get a PyObject from Python namespace (__main__ by default)
+	if (dict == NULL)
+		dict = NRpyMainName;
+	PyObject *pymodule = PyImport_AddModule(dict);
+	PyObject *dictobj = PyModule_GetDict(pymodule);
+	PyObject *bb = PyDict_GetItemString(dictobj, name);
+	if (!bb)
+		NRpyException("Failed to fetch a Python object by name.");
 	return bb;
 }
 
-struct NRpyArgs {
-// make arguments from Python individually addressable by [] subscript
-	PyObject* pyargs;
-	NRpyArgs(PyObject* pyaargs) : pyargs(pyaargs) {}
-	int size() {return int(PyTuple_Size(pyargs));}
-	PyObject* operator[](int i) {
-		if (i<PyTuple_Size(pyargs)) return PyTuple_GetItem(pyargs,i);
+struct NRpyArgs
+{
+	// make arguments from Python individually addressable by [] subscript
+	PyObject *pyargs;
+	NRpyArgs(PyObject *pyaargs) : pyargs(pyaargs) {}
+	int size() { return int(PyTuple_Size(pyargs)); }
+	PyObject *operator[](int i)
+	{
+		if (i < PyTuple_Size(pyargs))
+			return PyTuple_GetItem(pyargs, i);
 		// Returns a borrowed (unprotected) ref.  Args refs owned by calling routine.
-		else NRpyException("Index out of range in NRpyArgs.");
+		else
+			NRpyException("Index out of range in NRpyArgs.");
 		return Py_None;
 	}
 };
 
 // explicitly construct scalars and strings from PyObjects or Python namespace
 
-int NRpyIsNumber(PyObject* ob) {return (PyInt_Check(ob) || PyFloat_Check(ob));}
+int NRpyIsNumber(PyObject *ob) { return (PyInt_Check(ob) || PyFloat_Check(ob)); }
 
 // type Int
-int NRpyInt(PyObject* ob) {
-	if (ob == Py_None) return 0;
-	if (NRpyIsNumber(ob)) return int(PyInt_AsLong(ob)); // casts ob to int
-	else NRpyException("NRpyInt argument is not a number.");
+int NRpyInt(PyObject *ob)
+{
+	if (ob == Py_None)
+		return 0;
+	if (NRpyIsNumber(ob))
+		return int(PyInt_AsLong(ob)); // casts ob to int
+	else
+		NRpyException("NRpyInt argument is not a number.");
 	return 0;
 }
-int NRpyInt(char *name, char *dict = NULL) {
-	return NRpyInt(NRpyGetByName(name,dict));
+int NRpyInt(char *name, char *dict = NULL)
+{
+	return NRpyInt(NRpyGetByName(name, dict));
 }
 
 // type Doub
-double NRpyDoub(PyObject* ob) {
-	if (ob == Py_None) return NaN;
-	else if (NRpyIsNumber(ob)) return double(PyFloat_AsDouble(ob)); // casts ob to double
-	else NRpyException("NRpyDoub argument is not a number.");
+double NRpyDoub(PyObject *ob)
+{
+	if (ob == Py_None)
+		return NaN;
+	else if (NRpyIsNumber(ob))
+		return double(PyFloat_AsDouble(ob)); // casts ob to double
+	else
+		NRpyException("NRpyDoub argument is not a number.");
 	return 0.;
 }
-double NRpyDoub(char *name, char *dict = NULL) {
-	return NRpyDoub(NRpyGetByName(name,dict));
+double NRpyDoub(char *name, char *dict = NULL)
+{
+	return NRpyDoub(NRpyGetByName(name, dict));
 }
 
 // type char* (string)
-char* NRpyCharP(PyObject *ob) {
-	if (PyString_Check(ob)) return PyString_AsString(ob);
-	else NRpyException("NRpyCharP argument is not a string.");
+char *NRpyCharP(PyObject *ob)
+{
+	if (PyString_Check(ob))
+		return PyString_AsString(ob);
+	else
+		NRpyException("NRpyCharP argument is not a string.");
 	return NULL;
 }
-char* NRpyCharP(char *name, char *dict = NULL) {
-	return NRpyCharP(NRpyGetByName(name,dict));
+char *NRpyCharP(char *name, char *dict = NULL)
+{
+	return NRpyCharP(NRpyGetByName(name, dict));
 }
 
 // type encapsulated function pointer (note different syntax so that templating can work)
-template<class T> void NRpyCFunction(T* &fptr, PyObject* ob) {
-	if (! PyCapsule_CheckExact(ob)) NRpyException("NRpyCFunction arg is not a C++ function capsule.");
-	fptr = (T*)PyCapsule_GetPointer(ob,NULL);
+template <class T>
+void NRpyCFunction(T *&fptr, PyObject *ob)
+{
+	if (!PyCapsule_CheckExact(ob))
+		NRpyException("NRpyCFunction arg is not a C++ function capsule.");
+	fptr = (T *)PyCapsule_GetPointer(ob, NULL);
 	return;
 }
 
 // wrapper class for Python List, implementing only simple operations
-struct NRpyList {
-	PyObject* p;
+struct NRpyList
+{
+	PyObject *p;
 	int n;
 	int isnew;
-	NRpyList(int nn) : p(PyList_New(nn)), n(nn), isnew(1) {
-		for (int i=0;i<nn;i++) {
+	NRpyList(int nn) : p(PyList_New(nn)), n(nn), isnew(1)
+	{
+		for (int i = 0; i < nn; i++)
+		{
 			Py_INCREF(Py_None); // needed?
-			PyList_SetItem(p,i,Py_None);
+			PyList_SetItem(p, i, Py_None);
 		}
-		if (! PyList_Check(p)) NRpyException("NRpyList not successfully created.");
+		if (!PyList_Check(p))
+			NRpyException("NRpyList not successfully created.");
 	}
-	NRpyList(PyObject *pp) : p(pp), isnew(0) {
-		if (p == NULL) p = Py_None;
+	NRpyList(PyObject *pp) : p(pp), isnew(0)
+	{
+		if (p == NULL)
+			p = Py_None;
 		n = int((PyList_Check(p) ? PyList_Size(p) : 0));
 	}
-	int size() {return n;}
-	template <class T> int set(int i, T val) {
+	int size() { return n; }
+	template <class T>
+	int set(int i, T val)
+	{
 		int flag = PyList_SetItem(p, i, NRpyObject(val));
 		return flag;
 	}
-	NRpyList operator[](int i) {
-		if (i >= n || i < 0) NRpyException("NRpyList subscript out of range.");
-		return NRpyList(PyList_GetItem(p,i));
+	NRpyList operator[](int i)
+	{
+		if (i >= n || i < 0)
+			NRpyException("NRpyList subscript out of range.");
+		return NRpyList(PyList_GetItem(p, i));
 		// Returns a borrowed (unprotected) ref, but assumes List is bound by calling routine.
 	}
 };
-int NRpyInt(NRpyList &list) { // cast list to integer value of its 1st element
-	return NRpyInt(PyList_GetItem(list.p,0)); 
+int NRpyInt(NRpyList &list)
+{ // cast list to integer value of its 1st element
+	return NRpyInt(PyList_GetItem(list.p, 0));
 }
 // ToDo: also make NRpyList constructors for NRvector and NRmatrix
 
 // wrapper class for Python Dict
-struct NRpyDict {
-	PyObject* p;
+struct NRpyDict
+{
+	PyObject *p;
 	int isnew;
 	NRpyDict() : p(PyDict_New()), isnew(1) {}
-	NRpyDict(PyObject *pp) : p(pp), isnew(0) {
-		if (! PyDict_Check(pp)) NRpyException("Argument not a dict in NRpyDict constructor.");
+	NRpyDict(PyObject *pp) : p(pp), isnew(0)
+	{
+		if (!PyDict_Check(pp))
+			NRpyException("Argument not a dict in NRpyDict constructor.");
 	}
-	template <class T, class U> int set(T key, U val) {
+	template <class T, class U>
+	int set(T key, U val)
+	{
 		PyObject *thekey = NRpyObject(key), *theval = NRpyObject(val);
 		int flag = PyDict_SetItem(p, thekey, theval);
 		Py_DECREF(thekey); // because PyDict_SetItem INCREFs both key and val
 		Py_DECREF(theval);
 		return flag; // returns 0 for success, -1 for failure
 	}
-	template <class T> PyObject* get(const T key) {
+	template <class T>
+	PyObject *get(const T key)
+	{
 		PyObject *thekey = NRpyObject(key), *theval;
 		theval = PyDict_GetItem(p, thekey); // borrowed ref
 		Py_DECREF(thekey);
-		if (theval) return theval; // intended use is immediate conversion so borrowed ref is ok
-		else return Py_None; // ditto, won't be decremented because won't be returned to Python
+		if (theval)
+			return theval; // intended use is immediate conversion so borrowed ref is ok
+		else
+			return Py_None; // ditto, won't be decremented because won't be returned to Python
 	}
 };
 
 // overloaded functions to turn anything into a PyObject (vector and matrix are in Part II below)
 
-template<class T> PyObject* NRpyObject(T &a) {
-// default applies to all function objects or other structs
-	PyObject *thing = PyCapsule_New((void*)a,NULL,NULL);
+template <class T>
+PyObject *NRpyObject(T &a)
+{
+	// default applies to all function objects or other structs
+	PyObject *thing = PyCapsule_New((void *)a, NULL, NULL);
 	return thing;
 }
-PyObject* NRpyObject(const double a) {return PyFloat_FromDouble(a);}
-PyObject* NRpyObject(const int a) {return PyInt_FromLong(a);}
-PyObject* NRpyObject(const unsigned long long a) {return PyInt_FromSize_t(a);}
-PyObject* NRpyObject(const bool a) {return PyBool_FromLong(a);}
-PyObject* NRpyObject(const char *a) {return PyString_FromString(a);} // string is copied
-PyObject* NRpyObject() {return Py_BuildValue("");} // Python None
-PyObject* NRpyObject(NRpyList &a) {
-	if (! a.isnew) Py_INCREF(a.p); // make a new reference to return (should happen rarely)
+PyObject *NRpyObject(const double a) { return PyFloat_FromDouble(a); }
+PyObject *NRpyObject(const int a) { return PyInt_FromLong(a); }
+PyObject *NRpyObject(const unsigned long long a) { return PyInt_FromSize_t(a); }
+PyObject *NRpyObject(const bool a) { return PyBool_FromLong(a); }
+PyObject *NRpyObject(const char *a) { return PyString_FromString(a); } // string is copied
+PyObject *NRpyObject() { return Py_BuildValue(""); }				   // Python None
+PyObject *NRpyObject(NRpyList &a)
+{
+	if (!a.isnew)
+		Py_INCREF(a.p); // make a new reference to return (should happen rarely)
 	return a.p;
 }
-PyObject* NRpyObject(NRpyDict &a) {
-	if (! a.isnew) Py_INCREF(a.p); // make a new reference to return (should happen rarely)
+PyObject *NRpyObject(NRpyDict &a)
+{
+	if (!a.isnew)
+		Py_INCREF(a.p); // make a new reference to return (should happen rarely)
 	return a.p;
 }
 // NRpyObjects are generally return values.  Hence they pass clear title to ownership.
@@ -211,101 +262,144 @@ PyObject* NRpyObject(NRpyDict &a) {
 
 // send an object into Python namespace (except for scalars, will become shared ref)
 template <class T>
-void NRpySend(T &a, char *name, char *dict=NULL) {
-	if (dict == NULL) dict = NRpyMainName;
-	PyObject* pymodule = PyImport_AddModule(dict);
-	PyObject* dictobj = PyModule_GetDict(pymodule);
-	PyObject* aa = NRpyObject(a);
+void NRpySend(T &a, char *name, char *dict = NULL)
+{
+	if (dict == NULL)
+		dict = NRpyMainName;
+	PyObject *pymodule = PyImport_AddModule(dict);
+	PyObject *dictobj = PyModule_GetDict(pymodule);
+	PyObject *aa = NRpyObject(a);
 	int ret = PyDict_SetItemString(dictobj, name, aa);
-	if (ret) NRpyException("Failed to share an NR object with Python.");
+	if (ret)
+		NRpyException("Failed to share an NR object with Python.");
 	Py_XDECREF(aa); // because dictobj now has the responsibility
 }
 
 // templated check of a PyObject's type (used in initpyvec and initpymat below)
-template <class T> inline int NRpyTypeOK(PyObject *a) {return 0;}
-template <> inline int NRpyTypeOK<double>(PyObject *a) {return PyArray_ISFLOAT(a);}
-template <> inline int NRpyTypeOK<int>(PyObject *a) {
+template <class T>
+inline int NRpyTypeOK(PyObject *a) { return 0; }
+template <>
+inline int NRpyTypeOK<double>(PyObject *a) { return PyArray_ISFLOAT(a); }
+template <>
+inline int NRpyTypeOK<int>(PyObject *a)
+{
 	return PyArray_ISINTEGER(a) && (PyArray_TYPE(a) == NPY_INT32);
 }
-template <> inline int NRpyTypeOK<char>(PyObject *a) {return PyArray_ISINTEGER(a);}
-template <> inline int NRpyTypeOK<unsigned char>(PyObject *a) {return PyArray_ISINTEGER(a);}
-
+template <>
+inline int NRpyTypeOK<char>(PyObject *a) { return PyArray_ISINTEGER(a); }
+template <>
+inline int NRpyTypeOK<unsigned char>(PyObject *a) { return PyArray_ISINTEGER(a); }
 
 // templated return a PyObject's type (used in NRpyObject on vector and matrix args)
-template <class T> inline int NRpyDataType() {return PyArray_INT;}
-template <> inline int NRpyDataType<double>() {return PyArray_DOUBLE;}
-template <> inline int NRpyDataType<int>() {return PyArray_INT;}
-template <> inline int NRpyDataType<char>() {return PyArray_BYTE;}
-template <> inline int NRpyDataType<unsigned char>() {return PyArray_UBYTE;}
+template <class T>
+inline int NRpyDataType() { return PyArray_INT; }
+template <>
+inline int NRpyDataType<double>() { return PyArray_DOUBLE; }
+template <>
+inline int NRpyDataType<int>() { return PyArray_INT; }
+template <>
+inline int NRpyDataType<char>() { return PyArray_BYTE; }
+template <>
+inline int NRpyDataType<unsigned char>() { return PyArray_UBYTE; }
 
 // tempated cast a PyObject's type (used in NRpyPyFunction for return type)
-template <class T>  T NRpyCast(PyObject *a) {return (T*)NULL; }
-template <> double NRpyCast<double>(PyObject *a) {return NRpyDoub(a);}
-template <> int NRpyCast<int>(PyObject *a) {return NRpyInt(a);}
-template <> char* NRpyCast<char*>(PyObject *a) {return NRpyCharP(a);}
+template <class T>
+T NRpyCast(PyObject *a) { return (T *)NULL; }
+template <>
+double NRpyCast<double>(PyObject *a) { return NRpyDoub(a); }
+template <>
+int NRpyCast<int>(PyObject *a) { return NRpyInt(a); }
+template <>
+char *NRpyCast<char *>(PyObject *a) { return NRpyCharP(a); }
 
 // end Python glue Part I  (see Part II at end of file)
 
 // macro-like inline functions
 
-template<class T>
-inline T SQR(const T a) {return a*a;}
+template <class T>
+inline T SQR(const T a) { return a * a; }
 
-template<class T>
+template <class T>
 inline const T &MAX(const T &a, const T &b)
-        {return b > a ? (b) : (a);}
+{
+	return b > a ? (b) : (a);
+}
 
 inline float MAX(const double &a, const float &b)
-        {return b > a ? (b) : float(a);}
+{
+	return b > a ? (b) : float(a);
+}
 
 inline float MAX(const float &a, const double &b)
-        {return b > a ? float(b) : (a);}
+{
+	return b > a ? float(b) : (a);
+}
 
-template<class T>
+template <class T>
 inline const T &MIN(const T &a, const T &b)
-        {return b < a ? (b) : (a);}
+{
+	return b < a ? (b) : (a);
+}
 
 inline float MIN(const double &a, const float &b)
-        {return b < a ? (b) : float(a);}
+{
+	return b < a ? (b) : float(a);
+}
 
 inline float MIN(const float &a, const double &b)
-        {return b < a ? float(b) : (a);}
+{
+	return b < a ? float(b) : (a);
+}
 
-template<class T>
+template <class T>
 inline T SIGN(const T &a, const T &b)
-	{return b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a);}
+{
+	return b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a);
+}
 
 inline float SIGN(const float &a, const double &b)
-	{return b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a);}
+{
+	return b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a);
+}
 
 inline float SIGN(const double &a, const float &b)
-	{return (float)(b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a));}
+{
+	return (float)(b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a));
+}
 
-template<class T>
+template <class T>
 inline void SWAP(T &a, T &b)
-	{T dum=a; a=b; b=dum;}
+{
+	T dum = a;
+	a = b;
+	b = dum;
+}
 
 // exception handling
 
-
 #ifdef _USENRERRORCLASS_
-struct NRerror {
+struct NRerror
+{
 	char *message;
 	char *file;
 	int line;
 	NRerror(char *m, char *f, int l) : message(m), file(f), line(l) {}
 };
-#define throw(message) throw(NRerror(message,__FILE__,__LINE__));
-void NRcatch(NRerror err) {
+#define throw(message) throw(NRerror(message, __FILE__, __LINE__));
+void NRcatch(NRerror err)
+{
 	printf("ERROR: %s\n     in file %s at line %d\n",
-		err.message, err.file, err.line);
+		   err.message, err.file, err.line);
 	exit(1);
 }
 #elif defined _USEPYERRORCLASS_
-#define throw(message) NRpyException(message,1,0);
+#define throw(message) NRpyException(message, 1, 0);
 #else
-#define throw(message) \
-{printf("ERROR: %s\n     in file %s at line %d\n", message,__FILE__,__LINE__); throw(1);}
+#define throw(message)                                                                  \
+	{                                                                                   \
+		printf("ERROR: %s\n     in file %s at line %d\n", message, __FILE__, __LINE__); \
+		throw(1);                                                                       \
+	}
 #endif
 
 // usage example:
@@ -317,7 +411,6 @@ void NRcatch(NRerror err) {
 //
 // (You can of course substitute any other catch body for NRcatch(s).)
 
-
 // Vector and Matrix Classes
 
 #ifdef _USESTDVECTOR_
@@ -325,29 +418,31 @@ void NRcatch(NRerror err) {
 #else
 
 template <class T>
-class NRvector {
+class NRvector
+{
 private:
-	int nn;	// size of array. upper index is nn-1
+	int nn; // size of array. upper index is nn-1
 	T *v;
+
 public:
-	int ownsdata; // 1 for normal NRmatrix, 0 if Python owns the data
+	int ownsdata;	   // 1 for normal NRmatrix, 0 if Python owns the data
 	PyObject *pyident; // if I don't own my data, who does?
 	NRvector();
-	explicit NRvector(int n);		// Zero-based array
-	NRvector(PyObject *a);			// construct from Python array
-	NRvector(char *name, char *dict = NULL); // construct from name in Python scope
-	void initpyvec(PyObject *a); // helper function used by above
-	NRvector(int n, const T &a);	//initialize to constant value
-	NRvector(int n, const T *a);	// Initialize to array
-	NRvector(const NRvector &rhs);	// Copy constructor
-	NRvector & operator=(const NRvector &rhs);	//assignment
-	typedef T value_type; // make T available externally
-	inline T & operator[](const int i);	//i'th element
-	inline const T & operator[](const int i) const;
+	explicit NRvector(int n);				  // Zero-based array
+	NRvector(PyObject *a);					  // construct from Python array
+	NRvector(char *name, char *dict = NULL);  // construct from name in Python scope
+	void initpyvec(PyObject *a);			  // helper function used by above
+	NRvector(int n, const T &a);			  // initialize to constant value
+	NRvector(int n, const T *a);			  // Initialize to array
+	NRvector(const NRvector &rhs);			  // Copy constructor
+	NRvector &operator=(const NRvector &rhs); // assignment
+	typedef T value_type;					  // make T available externally
+	inline T &operator[](const int i);		  // i'th element
+	inline const T &operator[](const int i) const;
 	inline int size() const;
-	void resize(int newn, bool preserve=false); // resize 
-	//void resize(int newn); // resize (contents not preserved)
-	void assign(int newn, const T &a); // resize and assign a constant value
+	void resize(int newn, bool preserve = false); // resize
+	// void resize(int newn); // resize (contents not preserved)
+	void assign(int newn, const T &a);			// resize and assign a constant value
 	void assign(char *name, char *dict = NULL); // assign to a name in Python scope
 	~NRvector();
 };
@@ -355,79 +450,97 @@ public:
 // NRvector definitions
 
 template <class T>
-NRvector<T>::NRvector() : nn(0), v(NULL), ownsdata(1){}
+NRvector<T>::NRvector() : nn(0), v(NULL), ownsdata(1) {}
 
 template <class T>
-NRvector<T>::NRvector(int n) : nn(n), ownsdata(1), v(n>0 ? (T*)PyMem_Malloc(n*sizeof(T)) : NULL) {}
+NRvector<T>::NRvector(int n) : nn(n), ownsdata(1), v(n > 0 ? (T *)PyMem_Malloc(n * sizeof(T)) : NULL) {}
 
 template <class T>
-void NRvector<T>::initpyvec(PyObject *a) {
+void NRvector<T>::initpyvec(PyObject *a)
+{
 	ownsdata = 0;
 	pyident = a;
-	if (! PyArray_CheckExact(a)) NRpyException("PyObject is not an Array in NRvector constructor.");
-	if (! PyArray_ISCARRAY_RO(a)) NRpyException("Python Array must be contiguous (e.g., not strided).");
-	if (! NRpyTypeOK<T>(a)) NRpyException("Python Array type does not agree with NRvector type.");
+	if (!PyArray_CheckExact(a))
+		NRpyException("PyObject is not an Array in NRvector constructor.");
+	if (!PyArray_ISCARRAY_RO(a))
+		NRpyException("Python Array must be contiguous (e.g., not strided).");
+	if (!NRpyTypeOK<T>(a))
+		NRpyException("Python Array type does not agree with NRvector type.");
 	int i, ndim = PyArray_NDIM(a);
 	nn = 1;
-	for (i=0;i<ndim;i++) nn *= int(PyArray_DIMS(a)[i]);
-	v = (nn>0 ? (T*)PyArray_DATA(a) : NULL);
+	for (i = 0; i < ndim; i++)
+		nn *= int(PyArray_DIMS(a)[i]);
+	v = (nn > 0 ? (T *)PyArray_DATA(a) : NULL);
 }
-template <class T> NRvector<T>::NRvector(PyObject *a) {
+template <class T>
+NRvector<T>::NRvector(PyObject *a)
+{
 	initpyvec(a);
 }
-template <class T> NRvector<T>::NRvector(char *name, char *dict ) {
-	initpyvec(NRpyGetByName(name,dict));
+template <class T>
+NRvector<T>::NRvector(char *name, char *dict)
+{
+	initpyvec(NRpyGetByName(name, dict));
 }
 
 template <class T>
-NRvector<T>::NRvector(int n, const T& a) : nn(n), ownsdata(1), v(n>0 ? (T*)PyMem_Malloc(n*sizeof(T)) : NULL)
+NRvector<T>::NRvector(int n, const T &a) : nn(n), ownsdata(1), v(n > 0 ? (T *)PyMem_Malloc(n * sizeof(T)) : NULL)
 {
-	for(int i=0; i<n; i++) v[i] = a;
+	for (int i = 0; i < n; i++)
+		v[i] = a;
 }
 
 template <class T>
-NRvector<T>::NRvector(int n, const T *a) : nn(n), ownsdata(1), v(n>0 ? (T*)PyMem_Malloc(n*sizeof(T)) : NULL)
+NRvector<T>::NRvector(int n, const T *a) : nn(n), ownsdata(1), v(n > 0 ? (T *)PyMem_Malloc(n * sizeof(T)) : NULL)
 {
-	for(int i=0; i<n; i++) v[i] = *a++;
+	for (int i = 0; i < n; i++)
+		v[i] = *a++;
 }
 
 template <class T>
 NRvector<T>::NRvector(const NRvector<T> &rhs) : nn(rhs.nn), ownsdata(1),
-	v(nn>0 ? (T*)PyMem_Malloc(nn*sizeof(T)) : NULL) {
-	for(int i=0; i<nn; i++) v[i] = rhs[i];
+												v(nn > 0 ? (T *)PyMem_Malloc(nn * sizeof(T)) : NULL)
+{
+	for (int i = 0; i < nn; i++)
+		v[i] = rhs[i];
 }
 
 template <class T>
-NRvector<T> & NRvector<T>::operator=(const NRvector<T> &rhs) {
-	if (this != &rhs) {
-		if (nn != rhs.nn) {
+NRvector<T> &NRvector<T>::operator=(const NRvector<T> &rhs)
+{
+	if (this != &rhs)
+	{
+		if (nn != rhs.nn)
+		{
 			resize(rhs.nn);
-			nn=rhs.nn;
+			nn = rhs.nn;
 		}
-		for (int i=0; i<nn; i++)
-			v[i]=rhs[i];
+		for (int i = 0; i < nn; i++)
+			v[i] = rhs[i];
 	}
 	return *this;
 }
 
 template <class T>
-inline T & NRvector<T>::operator[](const int i)	//subscripting
+inline T &NRvector<T>::operator[](const int i) // subscripting
 {
 #ifdef _CHECKBOUNDS_
-if (i<0 || i>=nn) {
-	throw("NRvector subscript out of bounds");
-}
+	if (i < 0 || i >= nn)
+	{
+		throw("NRvector subscript out of bounds");
+	}
 #endif
 	return v[i];
 }
 
 template <class T>
-inline const T & NRvector<T>::operator[](const int i) const	//subscripting
+inline const T &NRvector<T>::operator[](const int i) const // subscripting
 {
 #ifdef _CHECKBOUNDS_
-if (i<0 || i>=nn) {
-	throw("NRvector subscript out of bounds");
-}
+	if (i < 0 || i >= nn)
+	{
+		throw("NRvector subscript out of bounds");
+	}
 #endif
 	return v[i];
 }
@@ -439,91 +552,112 @@ inline int NRvector<T>::size() const
 }
 
 template <class T>
-void NRvector<T>::resize(int newn, bool preserve) {
-	if (newn != nn) {
-		if (ownsdata) {
-			if (preserve) {
-				int i, nmin = MIN(nn,newn);
+void NRvector<T>::resize(int newn, bool preserve)
+{
+	if (newn != nn)
+	{
+		if (ownsdata)
+		{
+			if (preserve)
+			{
+				int i, nmin = MIN(nn, newn);
 				T *vsave = v;
-				//v = newn > 0 ? new T[newn] : NULL;
-				v = newn > 0 ? (T*)PyMem_Malloc(newn*sizeof(T)) : NULL;
-				for (i=0;i<nmin;i++) v[i] = vsave[i];
-				for (i=nmin;i<newn;i++) v[i] = T(0);
-				//if (vsave != NULL) delete[] (vsave);
-				if (vsave != NULL) PyMem_Free(vsave);
+				// v = newn > 0 ? new T[newn] : NULL;
+				v = newn > 0 ? (T *)PyMem_Malloc(newn * sizeof(T)) : NULL;
+				for (i = 0; i < nmin; i++)
+					v[i] = vsave[i];
+				for (i = nmin; i < newn; i++)
+					v[i] = T(0);
+				// if (vsave != NULL) delete[] (vsave);
+				if (vsave != NULL)
+					PyMem_Free(vsave);
 				nn = newn;
-			} else {
-				nn = newn;
-				if (v != NULL) PyMem_Free(v);
-				v = nn > 0 ? (T*)PyMem_Malloc(nn*sizeof(T)) : NULL;
 			}
-		} else { // Python
-			if (preserve) NRpyException("resize Python array with preserve contents not implemented");
+			else
+			{
+				nn = newn;
+				if (v != NULL)
+					PyMem_Free(v);
+				v = nn > 0 ? (T *)PyMem_Malloc(nn * sizeof(T)) : NULL;
+			}
+		}
+		else
+		{ // Python
+			if (preserve)
+				NRpyException("resize Python array with preserve contents not implemented");
 			nn = newn;
 			int dm[1];
 			dm[0] = newn;
 			PyArray_Dims mydims;
-			mydims.ptr = (npy_intp*)dm;
+			mydims.ptr = (npy_intp *)dm;
 			mydims.len = 1;
 			PyArray_Resize((PyArrayObject *)pyident, &mydims, 0, NPY_CORDER);
 			// the return value is garbage, or maybe PyNone, contrary to Numpy docs
 			// I think it's a Numpy bug, but following is correct
-			v = nn>0 ? (T*)PyArray_DATA(pyident) : NULL;
+			v = nn > 0 ? (T *)PyArray_DATA(pyident) : NULL;
 		}
 	}
 }
 
 template <class T>
-void NRvector<T>::assign(int newn, const T& a) {
+void NRvector<T>::assign(int newn, const T &a)
+{
 	resize(newn);
-	for (int i=0;i<nn;i++) v[i] = a;
+	for (int i = 0; i < nn; i++)
+		v[i] = a;
 }
 
 template <class T>
-void NRvector<T>::assign(char *name, char *dict ) {
-	if (! ownsdata) NRpyException("Attempt to assign Python array to another Python array.");
-	if (v != NULL) PyMem_Free(v);
-	initpyvec(NRpyGetByName(name,dict));
+void NRvector<T>::assign(char *name, char *dict)
+{
+	if (!ownsdata)
+		NRpyException("Attempt to assign Python array to another Python array.");
+	if (v != NULL)
+		PyMem_Free(v);
+	initpyvec(NRpyGetByName(name, dict));
 }
 
 template <class T>
 NRvector<T>::~NRvector()
 {
-	if (v != NULL && ownsdata) {
+	if (v != NULL && ownsdata)
+	{
 		PyMem_Free(v);
 	}
 }
 
 // end of NRvector definitions
 
-#endif //ifdef _USESTDVECTOR_
+#endif // ifdef _USESTDVECTOR_
 
 template <class T>
-class NRmatrix {
+class NRmatrix
+{
 private:
 	int nn;
 	int mm;
 	T **v;
+
 public:
 	int ownsdata; // 1 for normal NRmatrix, 0 if Python owns the data
 	PyObject *pyident;
 	NRmatrix();
-	NRmatrix(int n, int m);			// Zero-based array
-	NRmatrix(PyObject *a); // construct from Python array
-	NRmatrix(char *name, char *dict = NULL); // construct from name in Python scope
-	void initpymat(PyObject *a); // helper function used by above
-	NRmatrix(int n, int m, const T &a);	//Initialize to constant
-	NRmatrix(int n, int m, const T *a);	// Initialize to array
-	NRmatrix(const NRmatrix &rhs);		// Copy constructor
-	NRmatrix & operator=(const NRmatrix &rhs);	//assignment
-	typedef T value_type; // make T available externally
-	inline T* operator[](const int i);	//subscripting: pointer to row i
-	inline const T* operator[](const int i) const;
+	NRmatrix(int n, int m);					  // Zero-based array
+	NRmatrix(PyObject *a);					  // construct from Python array
+	NRmatrix(char *name, char *dict = NULL);  // construct from name in Python scope
+	void initpymat(PyObject *a);			  // helper function used by above
+	NRmatrix(int n, int m, const T &a);		  // Initialize to constant
+	NRmatrix(int n, int m, const T *a);		  // Initialize to array
+	NRmatrix(const NRmatrix &rhs);			  // Copy constructor
+	NRmatrix &operator=(const NRmatrix &rhs); // assignment
+	typedef T value_type;					  // make T available externally
+	inline T *operator[](const int i);		  // subscripting: pointer to row i
+	inline const T *operator[](const int i) const;
 	inline int nrows() const;
 	inline int ncols() const;
-	void resize(int newn, int newm); // resize (contents not preserved)
+	void resize(int newn, int newm);			 // resize (contents not preserved)
 	void assign(int newn, int newm, const T &a); // resize and assign a constant value
-	void assign(char *name, char *dict = NULL); // assign to a Python name and scope
+	void assign(char *name, char *dict = NULL);	 // assign to a Python name and scope
 	~NRmatrix();
 };
 
@@ -531,95 +665,127 @@ template <class T>
 NRmatrix<T>::NRmatrix() : nn(0), mm(0), ownsdata(1), v(NULL) {}
 
 template <class T>
-NRmatrix<T>::NRmatrix(int n, int m) : nn(n), mm(m), ownsdata(1), v(n>0 ? new T*[n] : NULL)
+NRmatrix<T>::NRmatrix(int n, int m) : nn(n), mm(m), ownsdata(1), v(n > 0 ? new T *[n] : NULL)
 {
-	int i,nel=m*n;
-	if (v) v[0] = nel>0 ? (T*)PyMem_Malloc(nel*sizeof(T)) : NULL;
-	for (i=1;i<n;i++) v[i] = v[i-1] + m;
+	int i, nel = m * n;
+	if (v)
+		v[0] = nel > 0 ? (T *)PyMem_Malloc(nel * sizeof(T)) : NULL;
+	for (i = 1; i < n; i++)
+		v[i] = v[i - 1] + m;
 }
 
 template <class T>
-void NRmatrix<T>::initpymat(PyObject *a) {
+void NRmatrix<T>::initpymat(PyObject *a)
+{
 	pyident = a;
 	ownsdata = 0;
-	if (! PyArray_CheckExact(a)) NRpyException("PyObject is not an Array in NRmatrix constructor.");
-	if (! PyArray_ISCARRAY_RO(a)) NRpyException("Python Array must be contiguous (e.g., not strided).");
-	if (PyArray_NDIM(a) != 2) NRpyException("Python Array must be 2-dim in NRmatrix constructor.");
-	if (! NRpyTypeOK<T>(a)) NRpyException("Python Array type does not agree with NRmatrix type.");
+	if (!PyArray_CheckExact(a))
+		NRpyException("PyObject is not an Array in NRmatrix constructor.");
+	if (!PyArray_ISCARRAY_RO(a))
+		NRpyException("Python Array must be contiguous (e.g., not strided).");
+	if (PyArray_NDIM(a) != 2)
+		NRpyException("Python Array must be 2-dim in NRmatrix constructor.");
+	if (!NRpyTypeOK<T>(a))
+		NRpyException("Python Array type does not agree with NRmatrix type.");
 	int i, nel;
 	nn = int(PyArray_DIMS(a)[0]);
 	mm = int(PyArray_DIMS(a)[1]);
-	nel = mm*nn;
-	v = (nn>0 ? new T*[nn] : NULL);
-	if (v) v[0] = nel>0 ? (T*)PyArray_DATA(a) : NULL;
-	for (i=1;i<nn;i++) v[i] = v[i-1] + mm;
+	nel = mm * nn;
+	v = (nn > 0 ? new T *[nn] : NULL);
+	if (v)
+		v[0] = nel > 0 ? (T *)PyArray_DATA(a) : NULL;
+	for (i = 1; i < nn; i++)
+		v[i] = v[i - 1] + mm;
 }
-template <class T> NRmatrix<T>::NRmatrix(PyObject *a) {
+template <class T>
+NRmatrix<T>::NRmatrix(PyObject *a)
+{
 	initpymat(a);
 }
-template <class T> NRmatrix<T>::NRmatrix(char *name, char *dict ) {
-	initpymat(NRpyGetByName(name,dict));
-}
-
 template <class T>
-NRmatrix<T>::NRmatrix(int n, int m, const T &a) : nn(n), mm(m), ownsdata(1), v(n>0 ? new T*[n] : NULL)
+NRmatrix<T>::NRmatrix(char *name, char *dict)
 {
-	int i, j, nel=m*n;
-	if (v) v[0] = nel>0 ? (T*)PyMem_Malloc(nel*sizeof(T)) : NULL;
-	for (i=1; i< n; i++) v[i] = v[i-1] + m;
-	for (i=0; i< n; i++) for (j=0; j<m; j++) v[i][j] = a;
+	initpymat(NRpyGetByName(name, dict));
 }
 
 template <class T>
-NRmatrix<T>::NRmatrix(int n, int m, const T *a) : nn(n), mm(m), ownsdata(1), v(n>0 ? new T*[n] : NULL)
+NRmatrix<T>::NRmatrix(int n, int m, const T &a) : nn(n), mm(m), ownsdata(1), v(n > 0 ? new T *[n] : NULL)
 {
-	int i,j,nel=m*n;
-	if (v) v[0] = nel>0 ? (T*)PyMem_Malloc(nel*sizeof(T)) : NULL;
-	for (i=1; i< n; i++) v[i] = v[i-1] + m;
-	for (i=0; i< n; i++) for (j=0; j<m; j++) v[i][j] = *a++;
+	int i, j, nel = m * n;
+	if (v)
+		v[0] = nel > 0 ? (T *)PyMem_Malloc(nel * sizeof(T)) : NULL;
+	for (i = 1; i < n; i++)
+		v[i] = v[i - 1] + m;
+	for (i = 0; i < n; i++)
+		for (j = 0; j < m; j++)
+			v[i][j] = a;
 }
 
 template <class T>
-NRmatrix<T>::NRmatrix(const NRmatrix &rhs) : nn(rhs.nn), mm(rhs.mm), ownsdata(1), v(nn>0 ? new T*[nn] : NULL)
+NRmatrix<T>::NRmatrix(int n, int m, const T *a) : nn(n), mm(m), ownsdata(1), v(n > 0 ? new T *[n] : NULL)
 {
-	int i,j,nel=mm*nn;
-	if (v) v[0] = nel>0 ? (T*)PyMem_Malloc(nel*sizeof(T)) : NULL;
-	for (i=1; i< nn; i++) v[i] = v[i-1] + mm;
-	for (i=0; i< nn; i++) for (j=0; j<mm; j++) v[i][j] = rhs[i][j];
+	int i, j, nel = m * n;
+	if (v)
+		v[0] = nel > 0 ? (T *)PyMem_Malloc(nel * sizeof(T)) : NULL;
+	for (i = 1; i < n; i++)
+		v[i] = v[i - 1] + m;
+	for (i = 0; i < n; i++)
+		for (j = 0; j < m; j++)
+			v[i][j] = *a++;
 }
 
 template <class T>
-NRmatrix<T> & NRmatrix<T>::operator=(const NRmatrix<T> &rhs) {
-	if (this != &rhs) {
-		int i,j;
-		if (nn != rhs.nn || mm != rhs.mm) {
-			resize(rhs.nn,rhs.mm);
-			nn=rhs.nn;
-			mm=rhs.mm;
+NRmatrix<T>::NRmatrix(const NRmatrix &rhs) : nn(rhs.nn), mm(rhs.mm), ownsdata(1), v(nn > 0 ? new T *[nn] : NULL)
+{
+	int i, j, nel = mm * nn;
+	if (v)
+		v[0] = nel > 0 ? (T *)PyMem_Malloc(nel * sizeof(T)) : NULL;
+	for (i = 1; i < nn; i++)
+		v[i] = v[i - 1] + mm;
+	for (i = 0; i < nn; i++)
+		for (j = 0; j < mm; j++)
+			v[i][j] = rhs[i][j];
+}
+
+template <class T>
+NRmatrix<T> &NRmatrix<T>::operator=(const NRmatrix<T> &rhs)
+{
+	if (this != &rhs)
+	{
+		int i, j;
+		if (nn != rhs.nn || mm != rhs.mm)
+		{
+			resize(rhs.nn, rhs.mm);
+			nn = rhs.nn;
+			mm = rhs.mm;
 		}
-		for (i=0; i<nn; i++) for (j=0; j<mm; j++) v[i][j] = rhs[i][j];
+		for (i = 0; i < nn; i++)
+			for (j = 0; j < mm; j++)
+				v[i][j] = rhs[i][j];
 	}
 	return *this;
 }
 
 template <class T>
-inline T* NRmatrix<T>::operator[](const int i)	//subscripting: pointer to row i
+inline T *NRmatrix<T>::operator[](const int i) // subscripting: pointer to row i
 {
 #ifdef _CHECKBOUNDS_
-if (i<0 || i>=nn) {
-	throw("NRmatrix subscript out of bounds");
-}
+	if (i < 0 || i >= nn)
+	{
+		throw("NRmatrix subscript out of bounds");
+	}
 #endif
 	return v[i];
 }
 
 template <class T>
-inline const T* NRmatrix<T>::operator[](const int i) const
+inline const T *NRmatrix<T>::operator[](const int i) const
 {
 #ifdef _CHECKBOUNDS_
-if (i<0 || i>=nn) {
-	throw("NRmatrix subscript out of bounds");
-}
+	if (i < 0 || i >= nn)
+	{
+		throw("NRmatrix subscript out of bounds");
+	}
 #endif
 	return v[i];
 }
@@ -637,74 +803,95 @@ inline int NRmatrix<T>::ncols() const
 }
 
 template <class T>
-void NRmatrix<T>::resize(int newn, int newm) {
-	int i,nel;
-	if (newn != nn || newm != mm) {
+void NRmatrix<T>::resize(int newn, int newm)
+{
+	int i, nel;
+	if (newn != nn || newm != mm)
+	{
 		nn = newn;
 		mm = newm;
-		nel = mm*nn;
-		if (ownsdata) {
-			if (v != NULL) {
+		nel = mm * nn;
+		if (ownsdata)
+		{
+			if (v != NULL)
+			{
 				PyMem_Free(v[0]);
-				delete[] (v);
+				delete[](v);
 			}
-			v = nn>0 ? new T*[nn] : NULL;
-			if (v) v[0] = nel>0 ? (T*)PyMem_Malloc(nel*sizeof(T)) : NULL;
-		} else {
-			if (v != NULL) delete[] (v);
+			v = nn > 0 ? new T *[nn] : NULL;
+			if (v)
+				v[0] = nel > 0 ? (T *)PyMem_Malloc(nel * sizeof(T)) : NULL;
+		}
+		else
+		{
+			if (v != NULL)
+				delete[](v);
 			int dm[2];
-			dm[0] = newn; dm[1] = newm;
+			dm[0] = newn;
+			dm[1] = newm;
 			PyArray_Dims mydims;
-			mydims.ptr = (npy_intp*)dm;
+			mydims.ptr = (npy_intp *)dm;
 			mydims.len = 2;
 			PyArray_Resize((PyArrayObject *)pyident, &mydims, 0, NPY_CORDER);
 			// the return value is garbage, or maybe PyNone, contrary to Numpy docs
 			// I think it's a Numpy bug, but following is correct
-			v = (nn>0 ? new T*[nn] : NULL);
-			if (v) v[0] = nel>0 ? (T*)PyArray_DATA(pyident) : NULL;
+			v = (nn > 0 ? new T *[nn] : NULL);
+			if (v)
+				v[0] = nel > 0 ? (T *)PyArray_DATA(pyident) : NULL;
 		}
-		for (i=1; i<nn; i++) v[i] = v[i-1] + mm;
+		for (i = 1; i < nn; i++)
+			v[i] = v[i - 1] + mm;
 	}
 }
 
 template <class T>
-void NRmatrix<T>::assign(int newn, int newm, const T& a) {
-	int i,j;
-	resize(newn,newm);
-	for (i=0; i< nn; i++) for (j=0; j<mm; j++) v[i][j] = a;
+void NRmatrix<T>::assign(int newn, int newm, const T &a)
+{
+	int i, j;
+	resize(newn, newm);
+	for (i = 0; i < nn; i++)
+		for (j = 0; j < mm; j++)
+			v[i][j] = a;
 }
 
 template <class T>
-void NRmatrix<T>::assign(char *name, char *dict) {
-	if (! ownsdata) NRpyException("Attempt to assign Python matrix to another Python matrix");
-	if (v != NULL) {
+void NRmatrix<T>::assign(char *name, char *dict)
+{
+	if (!ownsdata)
+		NRpyException("Attempt to assign Python matrix to another Python matrix");
+	if (v != NULL)
+	{
 		PyMem_Free(v[0]);
-		delete[] (v);
+		delete[](v);
 	}
-	initpymat(NRpyGetByName(name,dict));
+	initpymat(NRpyGetByName(name, dict));
 }
 
 template <class T>
 NRmatrix<T>::~NRmatrix()
 {
-	if (v != NULL) {
-		if (ownsdata) PyMem_Free(v[0]); // pointer to the data
-		delete[] (v); // pointer to the pointers
+	if (v != NULL)
+	{
+		if (ownsdata)
+			PyMem_Free(v[0]); // pointer to the data
+		delete[](v);		  // pointer to the pointers
 	}
 }
 
 template <class T>
-class NRMat3d {
+class NRMat3d
+{
 private:
 	int nn;
 	int mm;
 	int kk;
 	T ***v;
+
 public:
 	NRMat3d();
 	NRMat3d(int n, int m, int k);
-	inline T** operator[](const int i);	//subscripting: pointer to row i
-	inline const T* const * operator[](const int i) const;
+	inline T **operator[](const int i); // subscripting: pointer to row i
+	inline const T *const *operator[](const int i) const;
 	inline int dim1() const;
 	inline int dim2() const;
 	inline int dim3() const;
@@ -712,30 +899,33 @@ public:
 };
 
 template <class T>
-NRMat3d<T>::NRMat3d(): nn(0), mm(0), kk(0), v(NULL) {}
+NRMat3d<T>::NRMat3d() : nn(0), mm(0), kk(0), v(NULL) {}
 
 template <class T>
-NRMat3d<T>::NRMat3d(int n, int m, int k) : nn(n), mm(m), kk(k), v(new T**[n])
+NRMat3d<T>::NRMat3d(int n, int m, int k) : nn(n), mm(m), kk(k), v(new T **[n])
 {
-	int i,j;
-	v[0] = new T*[n*m];
-	v[0][0] = new T[n*m*k];
-	for(j=1; j<m; j++) v[0][j] = v[0][j-1] + k;
-	for(i=1; i<n; i++) {
-		v[i] = v[i-1] + m;
-		v[i][0] = v[i-1][0] + m*k;
-		for(j=1; j<m; j++) v[i][j] = v[i][j-1] + k;
+	int i, j;
+	v[0] = new T *[n * m];
+	v[0][0] = new T[n * m * k];
+	for (j = 1; j < m; j++)
+		v[0][j] = v[0][j - 1] + k;
+	for (i = 1; i < n; i++)
+	{
+		v[i] = v[i - 1] + m;
+		v[i][0] = v[i - 1][0] + m * k;
+		for (j = 1; j < m; j++)
+			v[i][j] = v[i][j - 1] + k;
 	}
 }
 
 template <class T>
-inline T** NRMat3d<T>::operator[](const int i) //subscripting: pointer to row i
+inline T **NRMat3d<T>::operator[](const int i) // subscripting: pointer to row i
 {
 	return v[i];
 }
 
 template <class T>
-inline const T* const * NRMat3d<T>::operator[](const int i) const
+inline const T *const *NRMat3d<T>::operator[](const int i) const
 {
 	return v[i];
 }
@@ -761,13 +951,13 @@ inline int NRMat3d<T>::dim3() const
 template <class T>
 NRMat3d<T>::~NRMat3d()
 {
-	if (v != NULL) {
-		delete[] (v[0][0]);
-		delete[] (v[0]);
-		delete[] (v);
+	if (v != NULL)
+	{
+		delete[](v[0][0]);
+		delete[](v[0]);
+		delete[](v);
 	}
 }
-
 
 // basic type names (redefine if your bit lengths don't match)
 
@@ -809,8 +999,8 @@ typedef NRvector<Ullong> VecUllong, VecUllong_O, VecUllong_IO;
 typedef const NRvector<Char> VecChar_I;
 typedef NRvector<Char> VecChar, VecChar_O, VecChar_IO;
 
-typedef const NRvector<Char*> VecCharp_I;
-typedef NRvector<Char*> VecCharp, VecCharp_O, VecCharp_IO;
+typedef const NRvector<Char *> VecCharp_I;
+typedef NRvector<Char *> VecCharp, VecCharp_O, VecCharp_IO;
 
 typedef const NRvector<Uchar> VecUchar_I;
 typedef NRvector<Uchar> VecUchar, VecUchar_O, VecUchar_IO;
@@ -818,8 +1008,8 @@ typedef NRvector<Uchar> VecUchar, VecUchar_O, VecUchar_IO;
 typedef const NRvector<Doub> VecDoub_I;
 typedef NRvector<Doub> VecDoub, VecDoub_O, VecDoub_IO;
 
-typedef const NRvector<Doub*> VecDoubp_I;
-typedef NRvector<Doub*> VecDoubp, VecDoubp_O, VecDoubp_IO;
+typedef const NRvector<Doub *> VecDoubp_I;
+typedef NRvector<Doub *> VecDoubp, VecDoubp_O, VecDoubp_IO;
 
 typedef const NRvector<Complex> VecComplex_I;
 typedef NRvector<Complex> VecComplex, VecComplex_O, VecComplex_IO;
@@ -862,11 +1052,13 @@ typedef NRMat3d<Doub> Mat3DDoub, Mat3DDoub_O, Mat3DDoub_IO;
 
 #ifdef _TURNONFPES_
 #ifdef _MSC_VER
-struct turn_on_floating_exceptions {
-	turn_on_floating_exceptions() {
-		int cw = _controlfp( 0, 0 );
-		cw &=~(EM_INVALID | EM_OVERFLOW | EM_ZERODIVIDE );
-		_controlfp( cw, MCW_EM );
+struct turn_on_floating_exceptions
+{
+	turn_on_floating_exceptions()
+	{
+		int cw = _controlfp(0, 0);
+		cw &= ~(EM_INVALID | EM_OVERFLOW | EM_ZERODIVIDE);
+		_controlfp(cw, MCW_EM);
 	}
 };
 turn_on_floating_exceptions yes_turn_on_floating_exceptions;
@@ -876,15 +1068,24 @@ turn_on_floating_exceptions yes_turn_on_floating_exceptions;
 // Python glue Part II begins here
 
 // NRpyObject for vector and matrix
-template<class T> PyObject* NRpyObject(NRvector<T> &a) {
-	if (a.ownsdata == 0) {Py_INCREF(a.pyident); return a.pyident;}
+template <class T>
+PyObject *NRpyObject(NRvector<T> &a)
+{
+	if (a.ownsdata == 0)
+	{
+		Py_INCREF(a.pyident);
+		return a.pyident;
+	}
 	npy_int nd = 1;
 	npy_intp dims[1];
 	dims[0] = a.size();
 	PyObject *thing;
-	if (dims[0] > 0) {
+	if (dims[0] > 0)
+	{
 		thing = PyArray_SimpleNewFromData(nd, dims, NRpyDataType<T>(), &a[0]);
-	} else {
+	}
+	else
+	{
 		thing = PyArray_SimpleNew(nd, dims, NRpyDataType<T>()); // zero size
 	}
 	PyArray_FLAGS(thing) |= NPY_OWNDATA;
@@ -892,15 +1093,25 @@ template<class T> PyObject* NRpyObject(NRvector<T> &a) {
 	a.pyident = thing;
 	return thing;
 }
-template<class T> PyObject* NRpyObject(NRmatrix<T> &a) {
-	if (a.ownsdata == 0) {Py_INCREF(a.pyident); return a.pyident;}
+template <class T>
+PyObject *NRpyObject(NRmatrix<T> &a)
+{
+	if (a.ownsdata == 0)
+	{
+		Py_INCREF(a.pyident);
+		return a.pyident;
+	}
 	npy_int nd = 2;
 	npy_intp dims[2];
-	dims[0] = a.nrows(); dims[1] = a.ncols();
+	dims[0] = a.nrows();
+	dims[1] = a.ncols();
 	PyObject *thing;
-	if (dims[0]*dims[1] > 0) {
+	if (dims[0] * dims[1] > 0)
+	{
 		thing = PyArray_SimpleNewFromData(nd, dims, NRpyDataType<T>(), &a[0][0]);
-	} else {
+	}
+	else
+	{
 		thing = PyArray_SimpleNew(nd, dims, NRpyDataType<T>()); // zero size
 	}
 	PyArray_FLAGS(thing) |= NPY_OWNDATA;
@@ -910,93 +1121,122 @@ template<class T> PyObject* NRpyObject(NRmatrix<T> &a) {
 }
 
 // PyObject(tuple) must go down here because it uses an NRvector
-PyObject* NRpyTuple(PyObject *first, ...) {
-	int MAXARGS=1024, i, nargs=1;
-	NRvector<PyObject*> argslist(MAXARGS);
+PyObject *NRpyTuple(PyObject *first, ...)
+{
+	int MAXARGS = 1024, i, nargs = 1;
+	NRvector<PyObject *> argslist(MAXARGS);
 	argslist[0] = first;
 	va_list vl;
-	va_start(vl,first);
-	for (;;) {
-		argslist[nargs] = va_arg(vl,PyObject*);
-		if (argslist[nargs] == NULL) break;
-		else ++nargs;
+	va_start(vl, first);
+	for (;;)
+	{
+		argslist[nargs] = va_arg(vl, PyObject *);
+		if (argslist[nargs] == NULL)
+			break;
+		else
+			++nargs;
 	}
 	va_end(vl);
-	PyObject* tuple = PyTuple_New(nargs);
+	PyObject *tuple = PyTuple_New(nargs);
 	// assumes that tuple will be returned to Python, so we are not responsible for it.
-	for(i=0;i<nargs;i++) PyTuple_SetItem(tuple, i, argslist[i]);
+	for (i = 0; i < nargs; i++)
+		PyTuple_SetItem(tuple, i, argslist[i]);
 	return tuple;
 }
 // If you create an NRpyTuple and don't return it, you need to Py_DECREF it later.
 
 // macros used to make and use persistent objects
 
-#define NRpyCONNECT(CLASS,METHOD) \
-static PyObject *METHOD(PyObject *self, PyObject *pyargs) { \
-	NRpyArgs args(pyargs); \
-	CLASS *p = (CLASS *)PyCapsule_GetPointer(args[0],NULL); \
-	return p->METHOD(args); }
+#define NRpyCONNECT(CLASS, METHOD)                               \
+	static PyObject *METHOD(PyObject *self, PyObject *pyargs)    \
+	{                                                            \
+		NRpyArgs args(pyargs);                                   \
+		CLASS *p = (CLASS *)PyCapsule_GetPointer(args[0], NULL); \
+		return p->METHOD(args);                                  \
+	}
 // To-Do: check that args[0] exists and is a PyCapsule before using it
 
 // destructor to register with PyCapsule, calls actual destructor
 // then, constructor calls actual constructor to create instance, returns it
-#define NRpyCONSTRUCTOR(CLASS,METHOD) \
-void NRpyDestroy(PyObject *myself) { \
-	((CLASS*)PyCapsule_GetPointer(myself,NULL))->~CLASS(); } \
-static PyObject *METHOD(PyObject *self, PyObject *pyargs) { \
-	NRpyArgs args(pyargs); \
-	CLASS *instance = new CLASS(args); \
-	return PyCapsule_New(instance,NULL,NRpyDestroy); }
+#define NRpyCONSTRUCTOR(CLASS, METHOD)                           \
+	void NRpyDestroy(PyObject *myself)                           \
+	{                                                            \
+		((CLASS *)PyCapsule_GetPointer(myself, NULL))->~CLASS(); \
+	}                                                            \
+	static PyObject *METHOD(PyObject *self, PyObject *pyargs)    \
+	{                                                            \
+		NRpyArgs args(pyargs);                                   \
+		CLASS *instance = new CLASS(args);                       \
+		return PyCapsule_New(instance, NULL, NRpyDestroy);       \
+	}
 
 // functor class to help with calling Python functions from within C++ modules
-template <class R> struct NRpyPyFunction {
+template <class R>
+struct NRpyPyFunction
+{
 	PyObject *ob;
 	int argcount;
 	NRpyPyFunction() : ob(NULL), argcount(0) {}
-	NRpyPyFunction(PyObject *obb) : ob(obb) {
-		if(! PyCallable_Check(ob)) NRpyException("NRpyPyFunction: non-callable object.");
+	NRpyPyFunction(PyObject *obb) : ob(obb)
+	{
+		if (!PyCallable_Check(ob))
+			NRpyException("NRpyPyFunction: non-callable object.");
 		PyCodeObject *code = (PyCodeObject *)PyFunction_GetCode(ob);
 		argcount = code->co_argcount; // caution, uses not-officially-exposed value
 	}
-	inline void argcheck(int argn) {
+	inline void argcheck(int argn)
+	{
 		if (argn != argcount)
-			NRpyException("NRpyPyFunction: should be %d args in PyFunction call.",1,argcount);
+			NRpyException("NRpyPyFunction: should be %d args in PyFunction call.", 1, argcount);
 	}
 	// constructors for 0 to 4 args.  You can add more if you want.
-	R operator()() {
+	R operator()()
+	{
 		argcheck(0);
-		return NRpyCast<R>(PyObject_CallObject(ob,NULL));
+		return NRpyCast<R>(PyObject_CallObject(ob, NULL));
 	}
-	template <class T> R operator()(T x1) {
+	template <class T>
+	R operator()(T x1)
+	{
 		PyObject *tuple;
 		argcheck(1);
-		tuple = NRpyTuple(NRpyObject(x1),NULL);
-		PyObject *tmp = PyObject_CallObject(ob,tuple);
-		if (tmp == NULL) NRpyException("Error in evaluating a Python function called from C++");
+		tuple = NRpyTuple(NRpyObject(x1), NULL);
+		PyObject *tmp = PyObject_CallObject(ob, tuple);
+		if (tmp == NULL)
+			NRpyException("Error in evaluating a Python function called from C++");
 		return NRpyCast<R>(tmp);
 	}
-	template <class T, class U> R operator()(T x1, U x2) {
+	template <class T, class U>
+	R operator()(T x1, U x2)
+	{
 		PyObject *tuple;
 		argcheck(2);
-		tuple = NRpyTuple(NRpyObject(x1),NRpyObject(x2),NULL);
-		PyObject *tmp = PyObject_CallObject(ob,tuple);
-		if (tmp == NULL) NRpyException("Error in evaluating a Python function called from C++");
+		tuple = NRpyTuple(NRpyObject(x1), NRpyObject(x2), NULL);
+		PyObject *tmp = PyObject_CallObject(ob, tuple);
+		if (tmp == NULL)
+			NRpyException("Error in evaluating a Python function called from C++");
 		return NRpyCast<R>(tmp);
 	}
-	template <class T, class U, class V> R operator()(T x1, U x2, V x3) {
+	template <class T, class U, class V>
+	R operator()(T x1, U x2, V x3)
+	{
 		PyObject *tuple;
 		argcheck(3);
-		tuple = NRpyTuple(NRpyObject(x1),NRpyObject(x2),NRpyObject(x3),NULL);
-		PyObject *tmp = PyObject_CallObject(ob,tuple);
-		if (tmp == NULL) NRpyException("Error in evaluating j Python function called from C++");
+		tuple = NRpyTuple(NRpyObject(x1), NRpyObject(x2), NRpyObject(x3), NULL);
+		PyObject *tmp = PyObject_CallObject(ob, tuple);
+		if (tmp == NULL)
+			NRpyException("Error in evaluating j Python function called from C++");
 		return NRpyCast<R>(tmp);
 	}
-	template <class T, class U, class V, class W> R operator()(T x1, U x2, V x3, W x4) {
+	template <class T, class U, class V, class W>
+	R operator()(T x1, U x2, V x3, W x4)
+	{
 		PyObject *tuple;
 		argcheck(4);
-		tuple = NRpyTuple(NRpyObject(x1),NRpyObject(x2),NRpyObject(x3),NRpyObject(x4),NULL);
-		PyObject *tmp = PyObject_CallObject(ob,tuple);
-		if (tmp == NULL) NRpyException("Error in evaluating a Python function called from C++");
+		tuple = NRpyTuple(NRpyObject(x1), NRpyObject(x2), NRpyObject(x3), NRpyObject(x4), NULL);
+		PyObject *tmp = PyObject_CallObject(ob, tuple);
+		if (tmp == NULL)
+			NRpyException("Error in evaluating a Python function called from C++");
 		return NRpyCast<R>(tmp);
 	}
 };
@@ -1004,25 +1244,35 @@ template <class R> struct NRpyPyFunction {
 // functor class for calling a function of one arg that may be either C or Python
 // T is return type, U is argument type
 template <class T, class U>
-struct NRpyAnyFunction {
-	T (*cfunc)(U);
+struct NRpyAnyFunction
+{
+	T (*cfunc)
+	(U);
 	NRpyPyFunction<T> ftor;
 	Int ispy;
-	
-	NRpyAnyFunction(PyObject *ob) {
-		if(PyCallable_Check(ob)) {
+
+	NRpyAnyFunction(PyObject *ob)
+	{
+		if (PyCallable_Check(ob))
+		{
 			ispy = 1;
 			ftor = NRpyPyFunction<T>(ob);
-		} else if (PyCapsule_CheckExact(ob)) {
+		}
+		else if (PyCapsule_CheckExact(ob))
+		{
 			ispy = 0;
-			NRpyCFunction(cfunc,ob);
-		} else NRpyException("Not a function object of either type in NRpyAnyFunction.");
+			NRpyCFunction(cfunc, ob);
+		}
+		else
+			NRpyException("Not a function object of either type in NRpyAnyFunction.");
 	}
-	inline T operator()(U x) {
-		if (ispy) return ftor(x);
-		else return cfunc(x);
+	inline T operator()(U x)
+	{
+		if (ispy)
+			return ftor(x);
+		else
+			return cfunc(x);
 	}
 };
 
 #endif /* _NR3_H_ */
-
